@@ -12,7 +12,6 @@
 #   make tunnel            expose the local server via cloudflared
 #   make clean             remove generated artifacts
 #   make reset-db          delete the SQLite database (keeps .bak)
-#   make migrate           import data/bank.json into data/examen.db
 #
 # Configuration via environment (or .env.local, sourced automatically):
 #   ANTHROPIC_API_KEY              required for `make generate-real`
@@ -55,7 +54,6 @@ help:
 	@echo "  generate-real      generate questions with real Claude API"
 	@echo "  serve              run the web server (anonymous mode if no auth env)"
 	@echo "  tunnel             expose local server via cloudflared (HTTPS public URL)"
-	@echo "  migrate            import legacy data/bank.json into data/examen.db"
 	@echo "  reset-db           delete examen.db and journal files (keeps .bak)"
 	@echo "  clean              remove ./bin and any temp files"
 	@echo "  fmt                run gofmt on the codebase"
@@ -72,7 +70,7 @@ help:
 # =============================================================================
 
 .PHONY: build
-build: $(BIN_DIR)/serve $(BIN_DIR)/generate $(BIN_DIR)/migrate-bank
+build: $(BIN_DIR)/serve $(BIN_DIR)/generate
 
 $(BIN_DIR)/serve: $(shell find . -name '*.go' -not -path './bin/*' -not -path './.git/*' 2>/dev/null)
 	@mkdir -p $(BIN_DIR)
@@ -81,10 +79,6 @@ $(BIN_DIR)/serve: $(shell find . -name '*.go' -not -path './bin/*' -not -path '.
 $(BIN_DIR)/generate: $(shell find . -name '*.go' -not -path './bin/*' -not -path './.git/*' 2>/dev/null)
 	@mkdir -p $(BIN_DIR)
 	$(GO) build -o $(BIN_DIR)/generate ./cmd/generate
-
-$(BIN_DIR)/migrate-bank: $(shell find . -name '*.go' -not -path './bin/*' -not -path './.git/*' 2>/dev/null)
-	@mkdir -p $(BIN_DIR)
-	$(GO) build -o $(BIN_DIR)/migrate-bank ./cmd/migrate-bank
 
 # =============================================================================
 # TEST / CHECK
@@ -129,14 +123,6 @@ generate-real: data
 		exit 1; \
 	fi
 	$(GO) run ./cmd/generate -real -count $(COUNT) -bank $(BANK)
-
-.PHONY: migrate
-migrate: data
-	@if [ ! -f data/bank.json ]; then \
-		echo "data/bank.json not found — nothing to migrate"; \
-		exit 1; \
-	fi
-	$(GO) run ./cmd/migrate-bank -from data/bank.json -to $(BANK)
 
 .PHONY: reset-db
 reset-db:
