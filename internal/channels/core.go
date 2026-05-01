@@ -6,7 +6,9 @@
 // with cross-cutting concerns like Retry and Timeout.
 package channels
 
-import "context"
+import (
+	"context"
+)
 
 // Agent is the central abstraction: a stream transformation from In to Out.
 // Always cancellation-aware via context.
