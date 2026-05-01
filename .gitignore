@@ -27,3 +27,10 @@ coverage.txt
 # SQLite WAL/SHM files (always exclude — runtime artifacts)
 *.db-wal
 *.db-shm
+
+# SQLite runtime artifacts (regenerated on every open)
+data/*.db-wal
+data/*.db-shm
+
+# Backups (local-only)
+data/*.db.bak
