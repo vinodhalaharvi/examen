@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Examen — Live Practice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #1a1612;
+    --paper: #f5f1e8;
+    --paper-2: #ebe5d4;
+    --rule: #2a241e;
+    --accent: #c2410c;
+    --accent-soft: #fef3c7;
+    --green: #15803d;
+    --green-soft: #dcfce7;
+    --red: #b91c1c;
+    --red-soft: #fee2e2;
+    --muted: #78716c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--paper); color: var(--ink);
+    font-family: 'Inter Tight', sans-serif; min-height: 100vh;
+  }
+  body {
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(194, 65, 12, 0.04) 0, transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(21, 128, 61, 0.04) 0, transparent 40%);
+    padding: 32px 24px 80px;
+  }
+  .page { max-width: 1100px; margin: 0 auto; }
+
+  header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 2px solid var(--rule); padding-bottom: 16px; margin-bottom: 32px;
+  }
+  .brand { display: flex; align-items: baseline; gap: 14px; }
+  .brand h1 {
+    font-family: 'Fraunces', serif; font-weight: 600; font-size: 38px;
+    letter-spacing: -0.02em; font-style: italic;
+  }
+  .brand .tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.15em;
+    border: 1px solid var(--rule); padding: 4px 8px; border-radius: 2px;
+  }
+  .meta {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted); text-align: right; line-height: 1.7;
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .subject-toggle {
+    display: inline-flex; gap: 0; border: 1px solid var(--rule);
+    border-radius: 2px; overflow: hidden; margin-top: 8px;
+  }
+  .subject-toggle button {
+    background: var(--paper); color: var(--ink); border: none;
+    padding: 6px 12px; cursor: pointer; font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .subject-toggle button.active { background: var(--ink); color: var(--paper); }
+
+  /* trace */
+  .trace {
+    background: var(--paper-2); border: 1px solid var(--rule);
+    border-radius: 4px; padding: 16px 20px; margin-bottom: 28px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  }
+  .trace-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .trace-pipe { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+  .agent-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; background: var(--paper); border: 1px solid var(--rule);
+    border-radius: 12px; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.08em; transition: all 0.3s ease; opacity: 0.4;
+  }
+  .agent-pill.done { opacity: 1; background: var(--green-soft); border-color: var(--green); }
+  .agent-pill.active { opacity: 1; background: var(--accent-soft); border-color: var(--accent); }
+  .agent-pill.parallel { border-style: dashed; }
+  .agent-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .agent-pill.done .dot { background: var(--green); }
+  .agent-pill.active .dot { background: var(--accent); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .arrow { color: var(--muted); padding: 0 2px; }
+  .parallel-group {
+    display: inline-flex; flex-direction: column; gap: 4px;
+    border-left: 2px solid var(--muted); border-right: 2px solid var(--muted);
+    padding: 4px 8px; margin: 0 2px;
+  }
+
+  /* question card */
+  .question {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 32px;
+    background: var(--paper); border: 1px solid var(--rule);
+    border-radius: 4px; padding: 36px;
+    box-shadow: 4px 4px 0 var(--rule);
+  }
+  .question.algebra { grid-template-columns: 1fr; }
+  @media (max-width: 760px) { .question { grid-template-columns: 1fr; } }
+  .qhead {
+    grid-column: 1 / -1; display: flex; justify-content: space-between;
+    align-items: baseline; border-bottom: 1px solid var(--rule); padding-bottom: 16px;
+  }
+  .qhead .num { font-family: 'Fraunces', serif; font-style: italic; font-size: 14px; color: var(--muted); }
+  .qhead .num strong {
+    font-style: normal; font-weight: 600; color: var(--ink);
+    font-size: 24px; margin-right: 4px;
+  }
+  .qhead .topic {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.15em;
+    color: var(--accent); background: var(--accent-soft);
+    padding: 4px 10px; border-radius: 2px;
+  }
+  .stem { font-family: 'Fraunces', serif; font-size: 19px; line-height: 1.55; margin-bottom: 20px; }
+  .stem em { font-style: italic; color: var(--accent); }
+  .figure-wrap {
+    background: var(--paper-2); border: 1px solid var(--rule);
+    border-radius: 2px; padding: 20px;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 280px;
+  }
+  .figure-wrap svg { width: 100%; height: auto; max-height: 320px; }
+  .algebra-empty {
+    background: var(--paper-2); border: 1px dashed var(--rule);
+    border-radius: 2px; padding: 32px;
+    font-family: 'Fraunces', serif; font-style: italic;
+    color: var(--muted); text-align: center;
+  }
+
+  /* choices */
+  .choices { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .choice {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px; background: var(--paper);
+    border: 1.5px solid var(--rule); border-radius: 3px;
+    cursor: pointer; font-family: 'Fraunces', serif; font-size: 16px;
+    transition: all 0.15s ease; text-align: left; width: 100%; color: var(--ink);
+  }
+  .choice:hover:not(:disabled) { background: var(--accent-soft); transform: translateX(4px); }
+  .choice .letter {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    width: 24px; height: 24px; border: 1.5px solid var(--rule);
+    border-radius: 50%; display: inline-flex; align-items: center;
+    justify-content: center; flex-shrink: 0; background: var(--paper-2);
+  }
+  .choice.correct { background: var(--green-soft); border-color: var(--green); }
+  .choice.correct .letter { background: var(--green); color: white; border-color: var(--green); }
+  .choice.wrong { background: var(--red-soft); border-color: var(--red); }
+  .choice.wrong .letter { background: var(--red); color: white; border-color: var(--red); }
+  .choice:disabled { cursor: default; }
+  .choice:disabled:hover { transform: none; }
+
+  /* feedback */
+  .feedback {
+    grid-column: 1 / -1; margin-top: 20px; padding: 18px 20px;
+    border-radius: 3px; border-left: 4px solid;
+    font-family: 'Inter Tight', sans-serif; font-size: 14px;
+    line-height: 1.6; display: none;
+  }
+  .feedback.shown { display: block; animation: slideIn 0.3s ease; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  .feedback.right { background: var(--green-soft); border-color: var(--green); }
+  .feedback.wrong { background: var(--red-soft); border-color: var(--red); }
+  .feedback h4 { font-family: 'Fraunces', serif; font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+  .feedback .misconception {
+    margin-top: 10px; padding-top: 10px; border-top: 1px dashed currentColor;
+    font-size: 13px; font-style: italic; opacity: 0.85;
+  }
+  .feedback .next-skill {
+    margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.7;
+  }
+
+  /* controls */
+  .controls {
+    grid-column: 1 / -1; display: flex; justify-content: space-between;
+    align-items: center; margin-top: 18px; padding-top: 18px;
+    border-top: 1px solid var(--rule);
+  }
+  .timer { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
+  .timer strong { color: var(--ink); font-weight: 500; }
+  button.next {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 10px 18px; background: var(--ink); color: var(--paper);
+    border: none; border-radius: 2px; cursor: pointer; transition: background 0.2s;
+  }
+  button.next:hover { background: var(--accent); }
+  button.next:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* score strip */
+  .scorestrip {
+    display: flex; gap: 12px; margin-top: 24px; align-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .dots { display: flex; gap: 4px; }
+  .dots span {
+    width: 12px; height: 12px; border: 1px solid var(--rule);
+    border-radius: 50%; background: var(--paper);
+  }
+  .dots span.right { background: var(--green); border-color: var(--green); }
+  .dots span.wrong { background: var(--red); border-color: var(--red); }
+  .weak-skills {
+    margin-left: auto; font-size: 10px;
+  }
+  .weak-skills .skill {
+    display: inline-block; padding: 2px 6px; background: var(--red-soft);
+    color: var(--red); border-radius: 2px; margin-right: 4px;
+  }
+
+  .loading { font-family: 'Fraunces', serif; font-style: italic; color: var(--muted); padding: 80px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="brand">
+      <h1>Examen</h1>
+      <span class="tag">live · adaptive · channel-driven</span>
+    </div>
+    <div class="meta">
+      <div>session · live</div>
+      <div class="subject-toggle">
+        <button data-subject="" class="active">all</button>
+        <button data-subject="geometry">geometry</button>
+        <button data-subject="algebra">algebra</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- agent trace -->
+  <div class="trace">
+    <div class="trace-header">
+      <span>pipeline · live trace</span>
+      <span id="trace-status">ready</span>
+    </div>
+    <div class="trace-pipe">
+      <span class="agent-pill" id="ag-curr"><span class="dot"></span>curriculum</span>
+      <span class="arrow">→</span>
+      <span class="agent-pill" id="ag-prob"><span class="dot"></span>lookup</span>
+      <span class="arrow">→</span>
+      <span class="parallel-group">
+        <span class="agent-pill parallel" id="ag-fig"><span class="dot"></span>figure</span>
+        <span class="agent-pill parallel" id="ag-dist"><span class="dot"></span>distractors</span>
+      </span>
+      <span class="arrow">→</span>
+      <span class="agent-pill" id="ag-val"><span class="dot"></span>validator</span>
+      <span class="arrow">→</span>
+      <span class="agent-pill" id="ag-grade"><span class="dot"></span>grader</span>
+      <span class="arrow">→</span>
+      <span class="agent-pill" id="ag-coach"><span class="dot"></span>coach</span>
+    </div>
+  </div>
+
+  <div class="question" id="qcard">
+    <div class="loading">loading first question...</div>
+  </div>
+
+  <div class="scorestrip">
+    <span>session</span>
+    <div class="dots" id="dots"></div>
+    <span id="score-text">0 / 0</span>
+    <div class="weak-skills" id="weak-skills"></div>
+  </div>
+</div>
+
+<script>
+const STUDENT_ID = "demo-" + Math.random().toString(36).slice(2, 8);
+let currentSubject = "";
+let currentQuestion = null;
+let answered = false;
+let history = [];
+let qNum = 0;
+let questionStartTime = Date.now();
+
+// ============== AGENT TRACE ANIMATION ==============
+const TRACE_IDS = ['ag-curr','ag-prob','ag-fig','ag-dist','ag-val','ag-grade','ag-coach'];
+function clearTrace() {
+  TRACE_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('active', 'done');
+  });
+}
+function setStage(id, state) {
+  const el = document.getElementById(id);
+  if (state === 'active') {
+    el.classList.add('active');
+    el.classList.remove('done');
+  } else if (state === 'done') {
+    el.classList.add('done');
+    el.classList.remove('active');
+  }
+}
+async function animateLookup() {
+  document.getElementById('trace-status').textContent = 'fetching...';
+  setStage('ag-curr', 'active');
+  await sleep(180);
+  setStage('ag-curr', 'done');
+  setStage('ag-prob', 'active');
+  await sleep(150);
+  setStage('ag-prob', 'done');
+  setStage('ag-fig', 'active');
+  setStage('ag-dist', 'active');
+  await sleep(280);
+  setStage('ag-fig', 'done');
+  setStage('ag-dist', 'done');
+  setStage('ag-val', 'active');
+  await sleep(180);
+  setStage('ag-val', 'done');
+  document.getElementById('trace-status').textContent = 'awaiting answer';
+}
+async function animateGrade() {
+  document.getElementById('trace-status').textContent = 'grading...';
+  setStage('ag-grade', 'active');
+  await sleep(220);
+  setStage('ag-grade', 'done');
+  setStage('ag-coach', 'active');
+  await sleep(360);
+  setStage('ag-coach', 'done');
+  document.getElementById('trace-status').textContent = 'ready';
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ============== API ==============
+async function fetchNextQuestion() {
+  qNum += 1;
+  clearTrace();
+  document.getElementById('qcard').innerHTML = '<div class="loading">loading question...</div>';
+  const animPromise = animateLookup();
+  const url = `/api/question/next?student=${STUDENT_ID}&subject=${currentSubject}`;
+  const r = await fetch(url);
+  if (!r.ok) {
+    document.getElementById('qcard').innerHTML = '<div class="loading">no question available — try generating more (run cmd/generate)</div>';
+    return null;
+  }
+  await animPromise;
+  return await r.json();
+}
+
+async function submitAnswer(idx) {
+  const elapsed = Math.floor((Date.now() - questionStartTime));
+  const att = {
+    student_id: STUDENT_ID,
+    question_id: currentQuestion.id,
+    selected: idx,
+    time_ms: elapsed,
+    submitted: new Date().toISOString()
+  };
+  const animPromise = animateGrade();
+  const r = await fetch('/api/answer/submit', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(att)
+  });
+  await animPromise;
+  return await r.json();
+}
+
+async function fetchState() {
+  const r = await fetch(`/api/session/state?student=${STUDENT_ID}`);
+  if (!r.ok) return null;
+  return await r.json();
+}
+
+// ============== RENDER ==============
+function renderQuestion(q) {
+  currentQuestion = q;
+  answered = false;
+  questionStartTime = Date.now();
+
+  const isAlgebra = q.problem.topic.subject === 'algebra';
+  const card = document.getElementById('qcard');
+  card.classList.toggle('algebra', isAlgebra);
+
+  const figureBlock = isAlgebra
+    ? '<div class="algebra-empty">no diagram needed — pure algebra</div>'
+    : `<div class="figure-wrap">${q.figure?.svg || '<div class="loading">no figure</div>'}</div>`;
+
+  card.innerHTML = `
+    <div class="qhead">
+      <span class="num"><strong>${String(qNum).padStart(2,'0')}</strong>· question</span>
+      <span class="topic">${q.problem.topic.display || q.problem.topic.name}</span>
+    </div>
+    <div>
+      <p class="stem">${escapeHTML(q.problem.stem)}</p>
+      ${isAlgebra ? '' : figureBlock}
+    </div>
+    <div>
+      ${isAlgebra ? figureBlock : ''}
+      <div class="choices">
+        ${q.choices.map((c, i) => `
+          <button class="choice" data-idx="${i}">
+            <span class="letter">${String.fromCharCode(65+i)}</span>
+            <span>${escapeHTML(c.text)}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <div class="controls">
+      <span class="timer" id="timer">elapsed: <strong>0s</strong></span>
+      <button class="next" id="next-btn" disabled>next question →</button>
+    </div>
+  `;
+  card.querySelectorAll('.choice').forEach(btn => {
+    btn.addEventListener('click', () => handleChoice(parseInt(btn.dataset.idx)));
+  });
+  document.getElementById('next-btn').addEventListener('click', loadNext);
+  startTimer();
+}
+
+function startTimer() {
+  if (window._t) clearInterval(window._t);
+  window._t = setInterval(() => {
+    if (answered) return;
+    const e = Math.floor((Date.now() - questionStartTime)/1000);
+    const t = document.getElementById('timer');
+    if (t) t.innerHTML = `elapsed: <strong>${e}s</strong>`;
+  }, 250);
+}
+
+async function handleChoice(idx) {
+  if (answered) return;
+  answered = true;
+
+  document.querySelectorAll('.choice').forEach(b => b.disabled = true);
+  const score = await submitAnswer(idx);
+
+  document.querySelectorAll('.choice').forEach((btn, i) => {
+    if (i === score.correct_index) btn.classList.add('correct');
+    else if (i === idx) btn.classList.add('wrong');
+  });
+
+  const fb = document.getElementById('feedback');
+  if (score.correct) {
+    fb.className = 'feedback right shown';
+    fb.innerHTML = `
+      <h4>✓ Correct.</h4>
+      <p>${escapeHTML(score.feedback)}</p>
+      <div class="next-skill">next focus → ${score.next_skill || score.skills?.[0] || 'continue'}</div>
+    `;
+  } else {
+    fb.className = 'feedback wrong shown';
+    fb.innerHTML = `
+      <h4>✗ Not quite.</h4>
+      <p>${escapeHTML(score.feedback)}</p>
+      ${score.misconception ? `<div class="misconception">Pattern: ${escapeHTML(score.misconception)}</div>` : ''}
+      <div class="next-skill">coach updating profile → ${score.skills?.join(', ') || 'analyzing...'}</div>
+    `;
+  }
+  history.push({correct: score.correct});
+  updateScorestrip();
+  await fetchAndShowState();
+  document.getElementById('next-btn').disabled = false;
+}
+
+function updateScorestrip() {
+  const dotsEl = document.getElementById('dots');
+  dotsEl.innerHTML = history.map(h => `<span class="${h.correct?'right':'wrong'}"></span>`).join('') +
+    Array(Math.max(0, 6 - history.length)).fill('<span></span>').join('');
+  const right = history.filter(h => h.correct).length;
+  document.getElementById('score-text').textContent = `${right} / ${history.length}`;
+}
+
+async function fetchAndShowState() {
+  const s = await fetchState();
+  if (!s) return;
+  const ws = document.getElementById('weak-skills');
+  if (s.weak_skills && s.weak_skills.length) {
+    ws.innerHTML = 'weak: ' + s.weak_skills.map(sk => `<span class="skill">${escapeHTML(sk)}</span>`).join('');
+  } else {
+    ws.innerHTML = '';
+  }
+}
+
+async function loadNext() {
+  const q = await fetchNextQuestion();
+  if (q) renderQuestion(q);
+}
+
+// subject toggle
+document.querySelectorAll('.subject-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.subject-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentSubject = btn.dataset.subject;
+    loadNext();
+  });
+});
+
+function escapeHTML(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+updateScorestrip();
+loadNext();
+</script>
+</body>
+</html>
