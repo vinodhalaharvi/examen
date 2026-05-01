@@ -91,8 +91,18 @@ type coachJSON struct {
 	Reason       string   `json:"reason"`
 }
 
-const coachSystem = `You analyze a student's recent answers and identify
-patterns. Output ONLY JSON adjusting the student's weak/strong skill lists.`
+const coachSystem = `You analyze a student's recent answers and identify patterns of weakness or mastery. You MUST output ONLY a single JSON object — no prose, no markdown code fences, no preamble. Start with { and end with }.
+
+Schema:
+{
+  "add_weak": ["skill.tag", "..."],
+  "remove_weak": ["skill.tag", "..."],
+  "add_strong": ["skill.tag", "..."],
+  "remove_strong": ["skill.tag", "..."],
+  "reason": "brief one-sentence explanation of the pattern"
+}
+
+Add a skill to "add_weak" only if the student missed it 2+ times in this window. Add to "add_strong" if they got it right 3+ times. Use empty arrays if no change is warranted.`
 
 func (c *Coach) Recommend(ctx context.Context, window []types.Score) types.CoachUpdate {
 	if len(window) == 0 {
@@ -114,7 +124,7 @@ func (c *Coach) Recommend(ctx context.Context, window []types.Score) types.Coach
 	}
 
 	user := fmt.Sprintf(
-		"Recent scores: %d total, %d correct.\nMissed skills: %v\nCorrect skills: %v\nWhat should we focus on?",
+		"Recent scores: %d total, %d correct.\nMissed skills (count): %v\nCorrect skills (count): %v\nWhat should the student focus on?",
 		len(window), countCorrect(window), missedSkills, correctSkills)
 
 	resp, err := c.Client.Complete(ctx, llm.Request{
@@ -127,8 +137,9 @@ func (c *Coach) Recommend(ctx context.Context, window []types.Score) types.Coach
 		// Fallback: rule-based update
 		return rulebasedCoach(studentID, missedSkills, correctSkills)
 	}
+	raw := llm.ExtractJSON(resp.Text)
 	var parsed coachJSON
-	if err := json.Unmarshal([]byte(resp.Text), &parsed); err != nil {
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
 		return rulebasedCoach(studentID, missedSkills, correctSkills)
 	}
 	return types.CoachUpdate{
