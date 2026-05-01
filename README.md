@@ -15,21 +15,33 @@ profile via a coaching loop.
 
 ```bash
 # 1. Generate a question bank using the mock LLM (no API key needed)
-go run ./cmd/generate -count 12
+make generate
 
 # 2. Start the web server
-go run ./cmd/serve
+make serve
 
 # 3. Open http://localhost:8080/
 ```
 
-To use the real Claude API instead of the mock, set `ANTHROPIC_API_KEY` and
-pass `-real`:
+To use the real Claude API instead of the mock:
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-... go run ./cmd/generate -real -count 30
-ANTHROPIC_API_KEY=sk-ant-... go run ./cmd/serve -real
+# Add ANTHROPIC_API_KEY to .env.local first, then:
+make generate-real COUNT=30
+make serve-real
 ```
+
+For a public demo URL via Cloudflare tunnel:
+
+```bash
+# Terminal 1
+make serve
+
+# Terminal 2 (requires `brew install cloudflared`)
+make tunnel
+```
+
+Run `make help` to see all targets.
 
 The bank lives in `data/examen.db` (SQLite). If you previously had a
 `data/bank.json` from an earlier version, migrate it:
