@@ -34,3 +34,14 @@ data/*.db-shm
 
 # Backups (local-only)
 data/*.db.bak
+
+# SQLite runtime artifacts (regenerated on every open)
+data/*.db-wal
+data/*.db-shm
+
+# Backups (local-only)
+data/*.db.bak
+
+# Legacy JSON bank — superseded by SQLite, never recommit
+data/bank.json
+data/*.json
