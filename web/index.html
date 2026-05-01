@@ -444,7 +444,8 @@ async function fetchNextQuestion() {
   const url = withStudent(`/api/question/next?subject=${currentSubject}`);
   const r = await fetch(url, { credentials: 'same-origin' });
   if (!r.ok) {
-    document.getElementById('qcard').innerHTML = '<div class="loading">no question available — try generating more (run cmd/generate)</div>';
+    document.getElementById('qcard').innerHTML = '<div class="loading">refreshing the question pool…</div>';
+    setTimeout(() => loadNext(), 600);
     return null;
   }
   await animPromise;

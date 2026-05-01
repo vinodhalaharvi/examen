@@ -140,20 +140,3 @@ func escapeXML(s string) string {
 	)
 	return r.Replace(s)
 }
-
-// Validate checks that a FigureSpec is well-formed and primitives stay within
-// the viewbox. Returns nil if valid.
-func Validate(spec types.FigureSpec) error {
-	if spec.Width <= 0 || spec.Height <= 0 {
-		return fmt.Errorf("invalid dimensions: %dx%d", spec.Width, spec.Height)
-	}
-	if len(spec.Primitives) == 0 {
-		return fmt.Errorf("no primitives in figure")
-	}
-	for i, p := range spec.Primitives {
-		if p.Kind == "" {
-			return fmt.Errorf("primitive %d has empty kind", i)
-		}
-	}
-	return nil
-}

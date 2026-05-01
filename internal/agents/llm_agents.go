@@ -119,57 +119,149 @@ Schema:
   "width": 360,
   "height": 240,
   "view_box": "0 0 360 240",
-  "primitives": [
-    {"kind": "line", "attrs": {"x1": 20, "y1": 200, "x2": 340, "y2": 200}, "style": "default"},
-    {"kind": "circle", "attrs": {"cx": 160, "cy": 140, "r": 100}, "style": "default"},
-    {"kind": "polygon", "attrs": {"points_count": 3, "x0": 40, "y0": 200, "x1": 40, "y1": 140, "x2": 110, "y2": 200}, "style": "soft_fill"},
-    {"kind": "right_angle", "attrs": {"x": 280, "y": 200, "size": 10}},
-    {"kind": "angle_marker", "attrs": {"cx": 40, "cy": 200, "r": 35, "start": 0, "sweep": -35}, "style": "highlight"}
-  ],
-  "labels": [
-    {"text": "35°", "x": 80, "y": 195, "style": "highlight"},
-    {"text": "24 m", "x": 150, "y": 220, "style": "default"}
-  ]
+  "primitives": [...],
+  "labels": [...]
 }
 
-Style values: "default", "highlight", "dashed", "soft_fill".
-All coordinates must be inside the viewBox. Use "highlight" sparingly for the key element.
-Output the JSON object and nothing else.`
+PRIMITIVE TYPES:
+- {"kind": "line", "attrs": {"x1": ..., "y1": ..., "x2": ..., "y2": ...}, "style": "default|highlight|dashed"}
+- {"kind": "circle", "attrs": {"cx": ..., "cy": ..., "r": ...}, "style": "default|soft_fill"}
+- {"kind": "polygon", "attrs": {"points_count": N, "x0": ..., "y0": ..., "x1": ..., "y1": ..., ... "x{N-1}": ..., "y{N-1}": ...}, "style": "default|soft_fill|highlight"}
+- {"kind": "right_angle", "attrs": {"x": <vertex_x>, "y": <vertex_y>, "size": 10}}  // small L marker
+- {"kind": "angle_marker", "attrs": {"cx": <vertex_x>, "cy": <vertex_y>, "r": 30, "start": <degrees>, "sweep": <degrees>}, "style": "highlight"}  // arc indicating angle
+
+LABEL: {"text": "...", "x": ..., "y": ..., "style": "default|highlight|mono"}
+- The (x, y) is the BASELINE of the text. Plan accordingly.
+- A label is roughly 7px wide per character at default size. A 4-char label like "h=10" needs ~28px of horizontal space.
+
+CRITICAL LAYOUT RULES:
+1. ALL coordinates strictly inside (0,0) to (width, height). Margin >= 5px from any edge.
+2. The angle_marker's center (cx, cy) MUST be the actual VERTEX where the two lines meet — not midway, not at a line endpoint that isn't the vertex.
+3. The angle_marker's "start" and "sweep" must be set so the arc is INSIDE the angle, not outside. start=0 points right (+x), positive sweep goes counterclockwise (toward -y in SVG since y increases downward).
+4. Labels MUST NOT overlap each other. Plan label positions carefully — leave at least 14px vertically and 8px horizontally between labels.
+5. Labels MUST NOT sit on top of dark lines. Place labels OFFSET from the lines they describe (e.g., a label for the hypotenuse goes ABOVE or BELOW the hypotenuse, not on it).
+6. The figure's PROPORTIONS should reflect the problem's numbers. If the problem says shadow=24 and angle=35°, the horizontal "shadow" line should be 3-4x as long as the vertical "pole" (since tan(35°) ≈ 0.7).
+
+EXAMPLE 1 — Right triangle, flagpole and shadow:
+Problem: "A flagpole casts a shadow 24m long. The angle of elevation from the tip of the shadow to the top is 35°. Find the height."
+
+{"width":360,"height":240,"view_box":"0 0 360 240",
+ "primitives":[
+   {"kind":"line","attrs":{"x1":20,"y1":200,"x2":340,"y2":200},"style":"default"},
+   {"kind":"line","attrs":{"x1":280,"y1":200,"x2":280,"y2":85},"style":"default"},
+   {"kind":"line","attrs":{"x1":40,"y1":200,"x2":280,"y2":200},"style":"highlight"},
+   {"kind":"line","attrs":{"x1":40,"y1":200,"x2":280,"y2":85},"style":"dashed"},
+   {"kind":"right_angle","attrs":{"x":280,"y":200,"size":10}},
+   {"kind":"angle_marker","attrs":{"cx":40,"cy":200,"r":30,"start":0,"sweep":-25},"style":"highlight"}
+ ],
+ "labels":[
+   {"text":"35°","x":75,"y":192,"style":"highlight"},
+   {"text":"24 m","x":140,"y":220,"style":"default"},
+   {"text":"h = ?","x":295,"y":140,"style":"default"}
+ ]}
+
+Notes on Example 1:
+- The angle vertex is (40,200), so angle_marker center is (40,200). NOT a midpoint.
+- The "35°" label is at (75,192) — to the right of the arc, above the ground line, not overlapping anything.
+- The "24 m" label is below the ground line (y=220, ground is at y=200), giving 20px clearance.
+- The "h = ?" label is to the right of the pole (x=295, pole is at x=280), aligned with the middle of the pole vertically.
+
+EXAMPLE 2 — Inscribed angle in a circle:
+Problem: "Central angle ∠AOC = 110°. Find inscribed angle ∠ABC."
+
+{"width":320,"height":280,"view_box":"0 0 320 280",
+ "primitives":[
+   {"kind":"circle","attrs":{"cx":160,"cy":140,"r":100},"style":"default"},
+   {"kind":"line","attrs":{"x1":160,"y1":140,"x2":78,"y2":83},"style":"highlight"},
+   {"kind":"line","attrs":{"x1":160,"y1":140,"x2":242,"y2":83},"style":"highlight"},
+   {"kind":"line","attrs":{"x1":160,"y1":240,"x2":78,"y2":83},"style":"default"},
+   {"kind":"line","attrs":{"x1":160,"y1":240,"x2":242,"y2":83},"style":"default"},
+   {"kind":"angle_marker","attrs":{"cx":160,"cy":140,"r":35,"start":145,"sweep":-110},"style":"highlight"}
+ ],
+ "labels":[
+   {"text":"O","x":168,"y":138,"style":"default"},
+   {"text":"A","x":62,"y":78,"style":"default"},
+   {"text":"C","x":248,"y":78,"style":"default"},
+   {"text":"B","x":156,"y":258,"style":"default"},
+   {"text":"110°","x":140,"y":120,"style":"highlight"},
+   {"text":"?","x":156,"y":215,"style":"default"}
+ ]}
+
+Notes on Example 2:
+- The 110° label is placed in the upper part of the angle's interior (y=120), not at the bottom where it would collide with the "?".
+- Each point label (A, B, C, O) is offset from the actual point by 8-10px so the letters don't sit on top of the dot.
+
+Output the JSON object for the given problem and nothing else.`
 
 func (f *Figure) Render(ctx context.Context, p types.Problem) types.Figure {
 	if p.Topic.Subject != types.SubjectGeometry {
 		// Algebra problems get no figure
 		return types.Figure{}
 	}
-	user := fmt.Sprintf(
-		"Generate a figure for this geometry problem.\nProblem id: %s\nStem: %s",
-		p.ID, p.Stem)
 
-	resp, err := f.Client.Complete(ctx, llm.Request{
-		System:    figureSystem,
-		User:      user,
-		Tier:      llm.TierBalance,
-		MaxTokens: 2000,
-	})
-	if err != nil {
-		log.Printf("[figure] llm error: %v", err)
-		return types.Figure{}
+	var lastFailure string
+	// Try once, then retry once with the validation error fed back to the LLM.
+	// Surprisingly effective.
+	for attempt := 0; attempt < 2; attempt++ {
+		user := fmt.Sprintf(
+			"Generate a figure for this geometry problem.\nProblem id: %s\nStem: %s",
+			p.ID, p.Stem)
+		// On retry, include the previous failure so the LLM corrects course.
+		if attempt > 0 && lastFailure != "" {
+			user += fmt.Sprintf(
+				"\n\nIMPORTANT: Your previous attempt was rejected: %s. Fix the issue and try again. Make sure all coordinates are inside the viewBox and labels do not overlap.",
+				lastFailure)
+		}
+
+		resp, err := f.Client.Complete(ctx, llm.Request{
+			System:    figureSystem,
+			User:      user,
+			Tier:      llm.TierBalance,
+			MaxTokens: 2000,
+		})
+		if err != nil {
+			log.Printf("[figure] llm error: %v", err)
+			return types.Figure{}
+		}
+		raw := llm.ExtractJSON(resp.Text)
+		var spec types.FigureSpec
+		if err := json.Unmarshal([]byte(raw), &spec); err != nil {
+			log.Printf("[figure] parse failed: %v\nraw (first 500 chars):\n%s",
+				err, truncate(resp.Text, 500))
+			lastFailure = "JSON did not parse"
+			continue
+		}
+
+		// Tier 1: structural — bounds, label collisions, known kinds.
+		if err := render.Validate(spec); err != nil {
+			log.Printf("[figure] structural validation failed (attempt %d): %v",
+				attempt+1, err)
+			// Attempt to auto-fix overlapping labels; re-validate.
+			fixed := render.FixLabels(spec)
+			if err2 := render.Validate(fixed); err2 == nil {
+				log.Printf("[figure] auto-fix resolved label overlap")
+				spec = fixed
+			} else {
+				lastFailure = err.Error()
+				continue
+			}
+		}
+
+		// Tier 2: geometry consistency — does the figure agree with the stem's numbers?
+		if err := render.CheckConsistency(spec, p.Stem); err != nil {
+			log.Printf("[figure] consistency check failed (attempt %d): %v",
+				attempt+1, err)
+			lastFailure = err.Error()
+			continue
+		}
+
+		return types.Figure{
+			Spec: spec,
+			SVG:  render.SVG(spec),
+		}
 	}
-	raw := llm.ExtractJSON(resp.Text)
-	var spec types.FigureSpec
-	if err := json.Unmarshal([]byte(raw), &spec); err != nil {
-		log.Printf("[figure] parse failed: %v\nraw (first 500 chars):\n%s",
-			err, truncate(resp.Text, 500))
-		return types.Figure{}
-	}
-	if err := render.Validate(spec); err != nil {
-		log.Printf("[figure] validation failed: %v", err)
-		return types.Figure{}
-	}
-	return types.Figure{
-		Spec: spec,
-		SVG:  render.SVG(spec),
-	}
+	log.Printf("[figure] giving up after retries; last failure: %s", lastFailure)
+	return types.Figure{}
 }
 
 // =============================================================================

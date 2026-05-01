@@ -251,11 +251,28 @@ func (s *server) getSession(studentID string) *session {
 	pickTopic := channels.Map(s.curriculum.Next)
 	lookup := channels.Map(func(req types.TopicRequest) types.Question {
 		q, err := s.bank.Find(req.Topic, req.Difficulty, req.Avoid)
-		if err != nil {
-			log.Printf("[lookup] miss for %s: %v", req.Topic.Name, err)
-			return types.Question{ID: "no-question"}
+		if err == nil {
+			return q
 		}
-		return q
+		// Bank exhausted for this topic+student. Recycle: ignore the seen
+		// list and serve any matching question. Also clear the session's
+		// seen list so the cycle resets cleanly going forward.
+		log.Printf("[lookup] bank exhausted for student=%s topic=%s; recycling",
+			req.StudentID, req.Topic.Name)
+		s.resetSeenForStudent(req.StudentID)
+		q, err = s.bank.Find(req.Topic, req.Difficulty, nil)
+		if err == nil {
+			return q
+		}
+		// Even with seen list cleared, no question for this topic exists —
+		// final fallback: any question in any subject.
+		anyTopic := types.Topic{Subject: req.Topic.Subject}
+		q, err = s.bank.Find(anyTopic, req.Difficulty, nil)
+		if err == nil {
+			return q
+		}
+		log.Printf("[lookup] no questions in bank at all: %v", err)
+		return types.Question{ID: "no-question"}
 	})
 	servingPipeline := channels.Pipe2(pickTopic, lookup)
 	questions := servingPipeline(s.ctx, profileIn)
@@ -317,6 +334,19 @@ func (s *server) applyCoachUpdate(studentID string, upd types.CoachUpdate) {
 	}
 	log.Printf("[coach] student=%s weak=%v reason=%s",
 		studentID, sess.profile.WeakSkills, upd.Reason)
+}
+
+// resetSeenForStudent clears the student's seen-IDs list. Called when the
+// bank is exhausted for their current topic — we recycle the catalog rather
+// than show a "no questions" error.
+func (s *server) resetSeenForStudent(studentID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sess, ok := s.sessions[studentID]
+	if !ok {
+		return
+	}
+	sess.profile.SeenIDs = sess.profile.SeenIDs[:0]
 }
 
 func initialProfile(id string) types.StudentProfile {
