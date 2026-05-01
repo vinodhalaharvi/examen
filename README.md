@@ -31,6 +31,13 @@ ANTHROPIC_API_KEY=sk-ant-... go run ./cmd/generate -real -count 30
 ANTHROPIC_API_KEY=sk-ant-... go run ./cmd/serve -real
 ```
 
+The bank lives in `data/examen.db` (SQLite). If you previously had a
+`data/bank.json` from an earlier version, migrate it:
+
+```bash
+go run ./cmd/migrate-bank -from data/bank.json -to data/examen.db
+```
+
 ## Architecture
 
 Two pipelines compose the system:
@@ -119,7 +126,7 @@ examen/
 │   ├── llm/         # mock + Claude API client
 │   ├── agents/      # 7 specialist agents
 │   ├── render/      # FigureSpec → SVG
-│   └── store/       # JSON-backed question bank
+│   └── store/       # SQLite-backed question bank + attempt log
 └── web/
     └── index.html   # student-facing UI with live agent trace
 ```
@@ -129,7 +136,8 @@ examen/
 - **Real:** combinator library, all agents wired up, server, UI, mock LLM,
   question bank, grader, coach, curriculum
 - **Stub:** Claude API client (works but untested without a real key)
-- **Hackathon-quality:** JSON store (use SQLite/Postgres for production),
+- **Hackathon-quality:** SQLite store (single-file, fine up to ~10K questions;
+  swap for Postgres if you need horizontal scaling),
   validator (just checks one-correct-choice + LLM judge; production would
   add sympy)
 

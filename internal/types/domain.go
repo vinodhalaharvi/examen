@@ -138,6 +138,7 @@ type StoredQuestion struct {
 	GeneratedAt time.Time `json:"generated_at"`
 	GeneratedBy string    `json:"generated_by"`
 	ValidatedBy []string  `json:"validated_by"`
+	Confidence  float64   `json:"confidence"`
 	TimesServed int       `json:"times_served"`
 	CorrectRate float64   `json:"correct_rate"`
 }

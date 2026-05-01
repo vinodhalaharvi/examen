@@ -29,7 +29,7 @@ import (
 
 func main() {
 	var (
-		bankPath = flag.String("bank", "data/bank.json", "question bank path")
+		bankPath = flag.String("bank", "data/examen.db", "question bank database path (SQLite)")
 		addr     = flag.String("addr", ":8080", "listen address")
 		webDir   = flag.String("web", "web", "static web files")
 		useReal  = flag.Bool("real", false, "use real Claude API for the coach")
@@ -43,6 +43,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer bank.Close()
 	if bank.Count() == 0 {
 		log.Fatal("question bank is empty — run `go run ./cmd/generate` first")
 	}

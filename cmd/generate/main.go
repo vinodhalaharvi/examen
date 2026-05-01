@@ -23,7 +23,7 @@ import (
 
 func main() {
 	var (
-		bankPath = flag.String("bank", "data/bank.json", "path to question bank file")
+		bankPath = flag.String("bank", "data/examen.db", "path to question bank database (SQLite)")
 		count    = flag.Int("count", 12, "approximate number of questions to generate")
 		useReal  = flag.Bool("real", false, "use real Claude API instead of mock")
 	)
@@ -40,6 +40,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer bank.Close()
 	client := buildClient(*useReal)
 	log.Printf("[generate] using LLM client: %s", client.Name)
 
@@ -89,6 +90,7 @@ func main() {
 			GeneratedAt: time.Now(),
 			GeneratedBy: client.Name,
 			ValidatedBy: v.ValidatedBy,
+			Confidence:  v.Confidence,
 		}
 		// Make sure figure is rendered if we got a spec from LLM but no SVG
 		if stored.Question.Figure.SVG == "" && len(stored.Question.Figure.Spec.Primitives) > 0 {

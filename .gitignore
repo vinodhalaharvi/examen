@@ -22,3 +22,8 @@ coverage.txt
 
 # Optional: keep the question bank out of version control if you want
 # data/bank.json
+# data/examen.db
+
+# SQLite WAL/SHM files (always exclude — runtime artifacts)
+*.db-wal
+*.db-shm
