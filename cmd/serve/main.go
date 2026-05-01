@@ -5,6 +5,17 @@
 //   2. Grading:   Attempt -> Score (grader, with coach observing via Tee)
 //
 // The HTTP handlers push values into channels and read results out.
+//
+// Authentication:
+//
+// If GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URL
+// and EXAMEN_COOKIE_KEY are all set, the server requires Google sign-in for
+// all /api/* endpoints. The student id used by every agent is the verified
+// email address from Google.
+//
+// If those env vars are missing, the server runs in anonymous mode: the
+// student id comes from a `student` query parameter (legacy behavior). This
+// keeps the demo runnable without Google credentials.
 package main
 
 import (
@@ -21,6 +32,7 @@ import (
 	"time"
 
 	"examen/internal/agents"
+	"examen/internal/auth"
 	"examen/internal/channels"
 	"examen/internal/llm"
 	"examen/internal/store"
@@ -51,19 +63,55 @@ func main() {
 
 	client := buildClient(*useReal)
 
+	// === Auth setup (optional) ===
+	authCfg, authErr := auth.LoadConfig()
+	if authErr != nil {
+		log.Printf("[serve] auth disabled (anonymous mode): %v", authErr)
+		log.Printf("[serve] to enable Google sign-in, set GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URL, EXAMEN_COOKIE_KEY")
+	} else {
+		log.Printf("[serve] auth enabled: Google OAuth, redirect=%s",
+			authCfg.OAuth.RedirectURL)
+	}
+
 	// === Build agents ===
 	curriculum := agents.NewCurriculum(time.Now().UnixNano())
 	grader := agents.NewGrader(bank.Get)
 	coach := agents.NewCoach(client)
 
 	// === Build the server ===
-	srv := newServer(ctx, bank, curriculum, grader, coach)
+	srv := newServer(ctx, bank, curriculum, grader, coach, authCfg)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/question/next", srv.handleNext)
-	mux.HandleFunc("/api/answer/submit", srv.handleSubmit)
-	mux.HandleFunc("/api/session/state", srv.handleState)
-	mux.Handle("/", http.FileServer(http.Dir(*webDir)))
+
+	// Auth routes — only registered when auth is configured
+	if authCfg != nil {
+		mux.HandleFunc("/auth/login", authCfg.Login)
+		mux.HandleFunc("/auth/callback", authCfg.Callback)
+		mux.HandleFunc("/auth/logout", authCfg.Logout)
+		mux.HandleFunc("/auth/me", authCfg.Me)
+		mux.HandleFunc("/login", serveLoginPage(*webDir))
+	}
+
+	// API routes
+	apiMux := http.NewServeMux()
+	apiMux.HandleFunc("/api/question/next", srv.handleNext)
+	apiMux.HandleFunc("/api/answer/submit", srv.handleSubmit)
+	apiMux.HandleFunc("/api/session/state", srv.handleState)
+
+	if authCfg != nil {
+		mux.Handle("/api/", authCfg.Require(apiMux))
+	} else {
+		mux.Handle("/api/", apiMux)
+	}
+
+	// Static files — root path. With auth enabled, redirect unauthenticated
+	// browsers to the login page before they even see the app shell.
+	staticHandler := http.FileServer(http.Dir(*webDir))
+	if authCfg != nil {
+		mux.Handle("/", redirectIfAnon(authCfg, staticHandler))
+	} else {
+		mux.Handle("/", staticHandler)
+	}
 
 	server := &http.Server{
 		Addr:         *addr,
@@ -83,6 +131,33 @@ func main() {
 	log.Printf("[serve] listening on %s — open http://localhost%s/", *addr, *addr)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
+	}
+}
+
+// redirectIfAnon redirects unauthenticated browsers to /login for the app
+// shell. The login page itself is exempt (otherwise it would be a redirect
+// loop). Static assets like /favicon.ico and /static/* pass through so the
+// login page can include CSS or fonts.
+func redirectIfAnon(authCfg *auth.Config, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow the login page and obvious public assets through.
+		if r.URL.Path == "/login" || r.URL.Path == "/login.html" ||
+			r.URL.Path == "/favicon.ico" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if _, ok := authCfg.SessionFrom(r); ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+		http.Redirect(w, r, "/login", http.StatusFound)
+	})
+}
+
+// serveLoginPage returns a handler that serves web/login.html.
+func serveLoginPage(webDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, webDir+"/login.html")
 	}
 }
 
@@ -108,6 +183,7 @@ type server struct {
 	curriculum *agents.Curriculum
 	grader     *agents.Grader
 	coach      *agents.Coach
+	auth       *auth.Config // nil in anonymous mode
 
 	mu       sync.Mutex
 	sessions map[string]*session
@@ -130,13 +206,32 @@ type session struct {
 }
 
 func newServer(ctx context.Context, bank *store.Bank, c *agents.Curriculum,
-	g *agents.Grader, coach *agents.Coach,
+	g *agents.Grader, coach *agents.Coach, authCfg *auth.Config,
 ) *server {
 	return &server{
 		ctx: ctx, bank: bank,
-		curriculum: c, grader: g, coach: coach,
+		curriculum: c, grader: g, coach: coach, auth: authCfg,
 		sessions: make(map[string]*session),
 	}
+}
+
+// studentIDFor pulls the canonical student id for the request. With auth
+// configured, this is the verified email from the session cookie; without
+// auth, it falls back to the legacy ?student=... query param.
+func (s *server) studentIDFor(r *http.Request) string {
+	if s.auth != nil {
+		if sess, ok := s.auth.SessionFrom(r); ok {
+			return sess.StudentID
+		}
+		// Auth required but no session — handlers behind auth.Require will
+		// have already rejected. As a safety net return empty so the caller
+		// can 401.
+		return ""
+	}
+	if id := r.URL.Query().Get("student"); id != "" {
+		return id
+	}
+	return "demo"
 }
 
 // getSession finds or creates a session for the student. Each session has its
@@ -238,9 +333,10 @@ func initialProfile(id string) types.StudentProfile {
 // =============================================================================
 
 func (s *server) handleNext(w http.ResponseWriter, r *http.Request) {
-	studentID := r.URL.Query().Get("student")
+	studentID := s.studentIDFor(r)
 	if studentID == "" {
-		studentID = "demo"
+		http.Error(w, "not authenticated", http.StatusUnauthorized)
+		return
 	}
 	subject := r.URL.Query().Get("subject")
 	sess := s.getSession(studentID)
@@ -290,9 +386,14 @@ func (s *server) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	if att.StudentID == "" {
-		att.StudentID = "demo"
+	// Force the canonical student id from the session/query — never trust
+	// the body's student_id, even if the client sends it.
+	studentID := s.studentIDFor(r)
+	if studentID == "" {
+		http.Error(w, "not authenticated", http.StatusUnauthorized)
+		return
 	}
+	att.StudentID = studentID
 	att.Submitted = time.Now()
 	sess := s.getSession(att.StudentID)
 
@@ -314,9 +415,10 @@ func (s *server) handleSubmit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
-	studentID := r.URL.Query().Get("student")
+	studentID := s.studentIDFor(r)
 	if studentID == "" {
-		studentID = "demo"
+		http.Error(w, "not authenticated", http.StatusUnauthorized)
+		return
 	}
 	sess := s.getSession(studentID)
 	s.mu.Lock()

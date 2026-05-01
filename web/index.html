@@ -219,6 +219,40 @@
   }
 
   .loading { font-family: 'Fraunces', serif; font-style: italic; color: var(--muted); padding: 80px; text-align: center; }
+
+  /* user widget */
+  .user-widget {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .user-widget img {
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 1px solid var(--rule);
+  }
+  .user-widget .uname {
+    color: var(--ink);
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 13px;
+  }
+  .user-widget a.logout {
+    color: var(--muted);
+    text-decoration: none;
+    border: 1px solid var(--rule);
+    padding: 3px 8px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    transition: all 0.15s;
+  }
+  .user-widget a.logout:hover {
+    background: var(--accent);
+    color: var(--paper);
+    border-color: var(--accent);
+  }
 </style>
 </head>
 <body>
@@ -230,7 +264,11 @@
       <span class="tag">live · adaptive · channel-driven</span>
     </div>
     <div class="meta">
-      <div>session · live</div>
+      <div class="user-widget" id="user-widget" style="display:none">
+        <img id="user-pic" src="" alt="" />
+        <span class="uname" id="user-name">…</span>
+        <a class="logout" href="/auth/logout">logout</a>
+      </div>
       <div class="subject-toggle">
         <button data-subject="" class="active">all</button>
         <button data-subject="geometry">geometry</button>
@@ -276,13 +314,78 @@
 </div>
 
 <script>
-const STUDENT_ID = "demo-" + Math.random().toString(36).slice(2, 8);
+// In auth mode, the server identifies the student via the session cookie —
+// we don't need to send a student id from the client. In anonymous mode we
+// fall back to a stable random id stored in localStorage (so refreshes
+// don't lose history).
+function getAnonStudentID() {
+  let id = localStorage.getItem('examen_student_id');
+  if (!id) {
+    id = "demo-" + Math.random().toString(36).slice(2, 8);
+    localStorage.setItem('examen_student_id', id);
+  }
+  return id;
+}
+
+let STUDENT_ID = null;     // set by initAuth(): email if signed in, anon id otherwise
+let AUTHENTICATED = false; // affects whether we send ?student=...
+
 let currentSubject = "";
 let currentQuestion = null;
 let answered = false;
 let history = [];
 let qNum = 0;
 let questionStartTime = Date.now();
+
+// ============== AUTH ==============
+async function initAuth() {
+  // Try the /auth/me endpoint. 404 means auth isn't configured (anonymous mode).
+  // 401 means auth is configured but we're not signed in (login page handles it).
+  // 200 means we're signed in.
+  let r;
+  try {
+    r = await fetch('/auth/me', { credentials: 'same-origin' });
+  } catch (e) {
+    AUTHENTICATED = false;
+    STUDENT_ID = getAnonStudentID();
+    return;
+  }
+  if (r.status === 404) {
+    AUTHENTICATED = false;
+    STUDENT_ID = getAnonStudentID();
+    return;
+  }
+  if (r.status === 200) {
+    const u = await r.json();
+    AUTHENTICATED = !!u.authenticated;
+    if (AUTHENTICATED) {
+      STUDENT_ID = u.student_id;
+      const widget = document.getElementById('user-widget');
+      const pic = document.getElementById('user-pic');
+      const name = document.getElementById('user-name');
+      if (u.picture) {
+        pic.src = u.picture;
+        pic.style.display = '';
+      } else {
+        pic.style.display = 'none';
+      }
+      name.textContent = u.name || u.email;
+      widget.style.display = '';
+      return;
+    }
+  }
+  // 401 or anything else — server with auth enabled redirected us; the
+  // browser is already on /login by the time we get here.
+  AUTHENTICATED = false;
+  STUDENT_ID = getAnonStudentID();
+}
+
+// Append ?student= only in anonymous mode. With auth, the cookie is enough.
+function withStudent(url) {
+  const sep = url.includes('?') ? '&' : '?';
+  if (AUTHENTICATED) return url;
+  return `${url}${sep}student=${encodeURIComponent(STUDENT_ID)}`;
+}
 
 // ============== AGENT TRACE ANIMATION ==============
 const TRACE_IDS = ['ag-curr','ag-prob','ag-fig','ag-dist','ag-val','ag-grade','ag-coach'];
@@ -338,8 +441,8 @@ async function fetchNextQuestion() {
   clearTrace();
   document.getElementById('qcard').innerHTML = '<div class="loading">loading question...</div>';
   const animPromise = animateLookup();
-  const url = `/api/question/next?student=${STUDENT_ID}&subject=${currentSubject}`;
-  const r = await fetch(url);
+  const url = withStudent(`/api/question/next?subject=${currentSubject}`);
+  const r = await fetch(url, { credentials: 'same-origin' });
   if (!r.ok) {
     document.getElementById('qcard').innerHTML = '<div class="loading">no question available — try generating more (run cmd/generate)</div>';
     return null;
@@ -351,7 +454,7 @@ async function fetchNextQuestion() {
 async function submitAnswer(idx) {
   const elapsed = Math.floor((Date.now() - questionStartTime));
   const att = {
-    student_id: STUDENT_ID,
+    student_id: STUDENT_ID,        // server overrides with session id when authed
     question_id: currentQuestion.id,
     selected: idx,
     time_ms: elapsed,
@@ -360,6 +463,7 @@ async function submitAnswer(idx) {
   const animPromise = animateGrade();
   const r = await fetch('/api/answer/submit', {
     method: 'POST',
+    credentials: 'same-origin',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify(att)
   });
@@ -368,7 +472,7 @@ async function submitAnswer(idx) {
 }
 
 async function fetchState() {
-  const r = await fetch(`/api/session/state?student=${STUDENT_ID}`);
+  const r = await fetch(withStudent('/api/session/state'), { credentials: 'same-origin' });
   if (!r.ok) return null;
   return await r.json();
 }
@@ -507,7 +611,10 @@ function escapeHTML(s) {
 }
 
 updateScorestrip();
-loadNext();
+(async () => {
+  await initAuth();
+  await loadNext();
+})();
 </script>
 </body>
 </html>

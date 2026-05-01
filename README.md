@@ -38,6 +38,33 @@ The bank lives in `data/examen.db` (SQLite). If you previously had a
 go run ./cmd/migrate-bank -from data/bank.json -to data/examen.db
 ```
 
+## Optional: Google sign-in
+
+By default the server runs in anonymous mode — anyone visiting the URL gets
+a random student id. To require Google sign-in instead:
+
+1. Create an OAuth client at [console.cloud.google.com](https://console.cloud.google.com/apis/credentials):
+   - Application type: **Web application**
+   - Authorized redirect URIs: `http://localhost:8080/auth/callback`
+     (and your tunnel/production URL + `/auth/callback`)
+
+2. Set environment variables before running the server:
+
+   ```bash
+   export GOOGLE_OAUTH_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+   export GOOGLE_OAUTH_CLIENT_SECRET="GOCSPX-..."
+   export GOOGLE_OAUTH_REDIRECT_URL="http://localhost:8080/auth/callback"
+   export EXAMEN_COOKIE_KEY="$(openssl rand -hex 32)"
+   go run ./cmd/serve
+   ```
+
+3. Visit the server — you'll land on a sign-in page. After signing in, the
+   verified email becomes your `student_id`, so your progress and weak-skills
+   profile follow you across devices.
+
+Use `EXAMEN_INSECURE_COOKIES=1` only for local dev without HTTPS. With a
+Cloudflare tunnel or any HTTPS deployment, leave it off so cookies require TLS.
+
 ## Architecture
 
 Two pipelines compose the system:
